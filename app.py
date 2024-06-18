@@ -5,8 +5,7 @@ import streamlit as st
 from moviepy.editor import VideoFileClip
 import speech_recognition as sr
 
-# Helper functions for file operations
-
+# Helper function to download a file from URL
 def download_file(url, dest_path):
     with st.spinner(f"Downloading {os.path.basename(dest_path)}..."):
         response = requests.get(url, stream=True)
@@ -18,6 +17,7 @@ def download_file(url, dest_path):
                 st.progress(progress)
         st.success(f"{os.path.basename(dest_path)} downloaded successfully!")
 
+# Function to transcribe audio using Google Web API
 def transcribe_audio(audio_path):
     recognizer = sr.Recognizer()
     with sr.AudioFile(audio_path) as source:
@@ -32,11 +32,13 @@ def transcribe_audio(audio_path):
     except sr.RequestError:
         return "Transcription failed: Could not request results."
 
+# Function to save transcription to a text file
 def save_transcription(transcription, output_path):
     with open(output_path, 'w') as f:
         f.write(transcription)
     st.success(f"Transcription saved to: {os.path.basename(output_path)}")
 
+# Function to process video: extract audio and transcribe
 def process_video(video_path):
     try:
         with st.spinner(f"Processing {os.path.basename(video_path)}..."):
@@ -57,13 +59,16 @@ def process_video(video_path):
         st.error(f"Error processing {os.path.basename(video_path)}: {str(e)}")
         return False
 
+# Main function to run the Streamlit app
 def main():
     st.title("Audio and Video Processing App")
 
+    # Sidebar option to choose upload method
     upload_option = st.sidebar.selectbox("Choose upload option", 
                                          ["Process single file", "Process multiple files", 
                                           "Extract files from zip", "Download files from URL"])
 
+    # Handling upload and processing of a single file
     if upload_option == "Process single file":
         file = st.file_uploader("Upload a single audio/video file", type=["mp4", "mkv", "wav"])
         if file:
@@ -82,6 +87,7 @@ def main():
             else:
                 st.error("Processing failed.")
 
+    # Handling upload and processing of multiple files
     elif upload_option == "Process multiple files":
         st.write("Upload multiple audio/video files")
         uploaded_files = st.file_uploader("Choose multiple files", type=["mp4", "mkv", "wav"], 
@@ -112,6 +118,7 @@ def main():
                 file_name="output_files.zip"
             )
 
+    # Handling extraction of files from a zip archive
     elif upload_option == "Extract files from zip":
         st.write("Upload a zip file containing audio/video files")
         zip_file = st.file_uploader("Choose a zip file", type="zip")
@@ -133,6 +140,7 @@ def main():
                         else:
                             st.error(f"Processing {file} failed.")
 
+    # Handling download of files from a URL (zip file containing audio/video files)
     elif upload_option == "Download files from URL":
         st.write("Provide URL of the zip file containing audio/video files")
         zip_url = st.text_input("Enter URL")

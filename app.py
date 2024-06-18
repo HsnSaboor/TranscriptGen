@@ -166,12 +166,12 @@ def main():
             st.write("Upload a zip file containing audio/video files")
             zip_file = st.file_uploader("Choose a zip file", type="zip")
             if zip_file:
-                zip_path = os.path.join("./uploaded_zips", zip_file.name)
+                zip_path = os.path.join("/uploaded_zips", zip_file.name)
                 with open(zip_path, "wb") as f:
                     f.write(zip_file.read())
                 
                 with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-                    zip_ref.extractall("./input_files")
+                    zip_ref.extractall("/input_files")
 
                 for root, dirs, files in os.walk("./input_files"):
                     for file in files:
@@ -196,11 +196,11 @@ def main():
             st.write("Provide URL of the zip file containing audio/video files")
             zip_url = st.text_input("Enter URL")
             if st.button("Download"):
-                zip_path = "./downloaded_files.zip"
+                zip_path = "/downloaded_files.zip"
                 download_file(zip_url, zip_path)
 
                 with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-                    zip_ref.extractall("./input_files")
+                    zip_ref.extractall("/input_files")
 
                 for root, dirs, files in os.walk("./input_files"):
                     for file in files:

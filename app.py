@@ -1,3 +1,4 @@
+# Import necessary libraries
 import os
 import zipfile
 import requests
@@ -39,7 +40,6 @@ def save_transcription(transcription, output_path):
     with open(output_path, 'w') as f:
         f.write(transcription)
     st.success(f"Transcription saved to: {os.path.basename(output_path)}")
-    return output_path
 
 # Function to process video: extract audio and transcribe
 def process_video(video_path):
@@ -56,24 +56,17 @@ def process_video(video_path):
             save_transcription(transcription, transcription_output_path)
 
         st.success(f"{os.path.basename(video_path)} processing complete!")
-        return transcription_output_path
+        return transcription_output_path  # Return path to transcription file
 
     except Exception as e:
         st.error(f"Error processing {os.path.basename(video_path)}: {str(e)}")
         return None
 
-# Function to authenticate Google Drive using credentials
-def authenticate_drive(client_id, client_secret):
+# Function to authenticate Google Drive using credentials file
+def authenticate_drive(credentials_file):
     gauth = GoogleAuth()
-    gauth.credentials = {
-        "client_id": client_id,
-        "client_secret": client_secret,
-        "refresh_token": "your-refresh-token",  # Replace with your refresh token
-        "access_token": "your-access-token",    # Replace with your access token
-        "token_expiry": None,
-        "user_agent": None,
-        "revoke_uri": None,
-    }
+    gauth.credentials = credentials_file.read()  # Read and set credentials
+    gauth.SaveCredentialsFile("mycreds.txt")  # Save credentials locally
     drive = GoogleDrive(gauth)
     return drive
 
@@ -84,10 +77,10 @@ def upload_to_drive(drive, file_path):
         file_drive = drive.CreateFile({'title': file_name})
         file_drive.SetContentFile(file_path)
         file_drive.Upload()
-        st.success(f"{file_name} uploaded to Google Drive successfully!")
-        return file_drive['id']
+        return file_drive['id']  # Return file ID on success
+
     except Exception as e:
-        st.error(f"Error uploading {os.path.basename(file_path)} to Google Drive: {str(e)}")
+        st.error(f"Failed to upload {file_name} to Google Drive: {str(e)}")
         return None
 
 # Main function to run the Streamlit app
@@ -101,7 +94,17 @@ def main():
     creds_file = None
     if st.button("Authenticate"):
         try:
-            drive = authenticate_drive(client_id, client_secret)
+            gauth = GoogleAuth()
+            gauth.credentials = {
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "refresh_token": "your-refresh-token",  # Replace with your refresh token
+                "access_token": "your-access-token",    # Replace with your access token
+                "token_expiry": None,
+                "user_agent": None,
+                "revoke_uri": None,
+            }
+            drive = GoogleDrive(gauth)
             st.success("Authenticated successfully!")
             creds_file = "mycreds.txt"  # Use this file for future authentication
         except Exception as e:
@@ -156,22 +159,6 @@ def main():
                             st.error(f"Failed to upload transcription file for {file.name} to Google Drive.")
                     else:
                         st.error(f"Processing {file.name} failed.")
-
-                # Create a zip file containing all transcription output files
-                zip_path = "./output_files.zip"
-                with zipfile.ZipFile(zip_path, 'w') as zip_file:
-                    for root, _, files in os.walk("./output"):
-                        for file in files:
-                            if file.endswith('.txt'):
-                                zip_file.write(os.path.join(root, file), arcname=file)
-
-                # Upload zip file to Google Drive
-                zip_file_id = upload_to_drive(drive, zip_path)
-                if zip_file_id:
-                    # Provide download link to the user
-                    st.markdown(f"Download [all transcriptions zip file](https://drive.google.com/uc?id={zip_file_id})")
-                else:
-                    st.error("Failed to upload all transcriptions zip file to Google Drive.")
 
     # Handling extraction of files from a zip archive
     elif upload_option == "Extract files from zip":
@@ -231,7 +218,4 @@ def main():
                                     st.error(f"Failed to upload transcription file for {file} to Google Drive.")
                             else:
                                 st.error(f"Processing {file} failed.")
-
-if __name__ == "__main__":
-    main()
 

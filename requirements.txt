@@ -1,0 +1,7 @@
+requests==2.26.0
+streamlit
+spleeter
+tensorflow
+tensorflow-gpu
+speechrecognition==3.8.1
+moviepy==1.0.3

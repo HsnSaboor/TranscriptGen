@@ -2,32 +2,29 @@ import os
 import zipfile
 import requests
 import streamlit as st
-from spleeter.separator import Separator
 from moviepy.editor import VideoFileClip
 import speech_recognition as sr
-import tensorflow as tf
-
-# Initialize Spleeter separator
-separator = Separator('spleeter:2stems')
-
-# TensorFlow session configuration
-config = tf.compat.v1.ConfigProto()
-config.gpu_options.allow_growth = True
-session = tf.compat.v1.Session(config=config)
-tf.compat.v1.keras.backend.set_session(session)
 
 # Helper functions for file operations
+
 def download_file(url, dest_path):
-    response = requests.get(url, stream=True)
-    with open(dest_path, 'wb') as file:
-        for chunk in response.iter_content(chunk_size=8192):
-            file.write(chunk)
+    with st.spinner(f"Downloading {os.path.basename(dest_path)}..."):
+        response = requests.get(url, stream=True)
+        with open(dest_path, 'wb') as file:
+            total_length = int(response.headers.get('content-length'))
+            for chunk in response.iter_content(chunk_size=8192):
+                file.write(chunk)
+                progress = file.tell() / total_length
+                st.progress(progress)
+        st.success(f"{os.path.basename(dest_path)} downloaded successfully!")
 
 def remove_audio_from_video(video_path, output_format='webm'):
-    video = VideoFileClip(video_path)
-    video_no_audio = video.without_audio()
-    output_path = os.path.splitext(video_path)[0] + f"_no_audio.{output_format}"
-    video_no_audio.write_videofile(output_path, codec='libvpx' if output_format == 'webm' else 'libx264')
+    with st.spinner(f"Removing audio from {os.path.basename(video_path)}..."):
+        video = VideoFileClip(video_path)
+        video_no_audio = video.without_audio()
+        output_path = os.path.splitext(video_path)[0] + f"_no_audio.{output_format}"
+        video_no_audio.write_videofile(output_path, codec='libvpx' if output_format == 'webm' else 'libx264')
+    st.success(f"Audio removed from {os.path.basename(video_path)}")
     return output_path
 
 def transcribe_audio(audio_path):
@@ -36,7 +33,8 @@ def transcribe_audio(audio_path):
         audio = recognizer.record(source)
         
     try:
-        transcription = recognizer.recognize_google(audio)
+        with st.spinner("Transcribing audio..."):
+            transcription = recognizer.recognize_google(audio)
         return transcription
     except sr.UnknownValueError:
         return "Transcription failed: Audio not clear."
@@ -46,9 +44,9 @@ def transcribe_audio(audio_path):
 def save_transcription(transcription, output_path):
     with open(output_path, 'w') as f:
         f.write(transcription)
-    st.success(f"Transcription saved to: {output_path}")
+    st.success(f"Transcription saved to: {os.path.basename(output_path)}")
 
-def process_video(video_path, use_gpu=False):
+def process_video(video_path):
     try:
         with st.spinner(f"Processing {os.path.basename(video_path)}..."):
             # Extract audio
@@ -56,27 +54,15 @@ def process_video(video_path, use_gpu=False):
             audio_path = os.path.splitext(video_path)[0] + '.wav'
             video.audio.write_audiofile(audio_path, codec='pcm_s16le', fps=16000)
 
-            # Separate music from audio
-            output_path = os.path.join("output", os.path.splitext(os.path.basename(video_path))[0])
-            os.makedirs(output_path, exist_ok=True)
-
-            if use_gpu:
-                separator.set_gpu_memory_limit(8)  # Adjust based on your GPU memory
-                separator.set_forward_device("gpu")
-            else:
-                separator.set_forward_device("cpu")
-
-            separator.separate_to_file(audio_path, output_path)
-
             # Remove audio from video
             video_no_audio_path = remove_audio_from_video(video_path)
-            video_no_audio_output_path = os.path.join(output_path, os.path.basename(video_no_audio_path))
+            video_no_audio_output_path = os.path.join("output", os.path.basename(video_no_audio_path))
             os.rename(video_no_audio_path, video_no_audio_output_path)
 
             # Transcribe audio
             transcription = transcribe_audio(audio_path)
-            transcription_path = os.path.join(output_path, os.path.splitext(os.path.basename(audio_path))[0] + '.txt')
-            save_transcription(transcription, transcription_path)
+            transcription_output_path = os.path.join("output", os.path.splitext(os.path.basename(audio_path))[0] + '.txt')
+            save_transcription(transcription, transcription_output_path)
 
         st.success(f"{os.path.basename(video_path)} processing complete!")
         return True
@@ -98,8 +84,7 @@ def main():
             file_path = os.path.join("./uploaded_files", file.name)
             with open(file_path, "wb") as f:
                 f.write(file.read())
-            use_gpu = st.sidebar.checkbox("Use GPU (if available)")
-            success = process_video(file_path, use_gpu)
+            success = process_video(file_path)
             if success:
                 st.write("Processing successful!")
             else:
@@ -110,12 +95,11 @@ def main():
         uploaded_files = st.file_uploader("Choose multiple files", type=["mp4", "mkv", "wav"], 
                                           accept_multiple_files=True)
         if uploaded_files:
-            use_gpu = st.sidebar.checkbox("Use GPU (if available)")
             for file in uploaded_files:
                 file_path = os.path.join("./uploaded_files", file.name)
                 with open(file_path, "wb") as f:
                     f.write(file.read())
-                success = process_video(file_path, use_gpu)
+                success = process_video(file_path)
                 if success:
                     st.write(f"Processing {file.name} successful!")
                 else:
@@ -132,12 +116,11 @@ def main():
             with zipfile.ZipFile(zip_path, 'r') as zip_ref:
                 zip_ref.extractall("./input_files")
 
-            use_gpu = st.sidebar.checkbox("Use GPU (if available)")
             for root, dirs, files in os.walk("./input_files"):
                 for file in files:
                     if file.endswith('.mp4') or file.endswith('.mkv') or file.endswith('.wav'):
                         file_path = os.path.join(root, file)
-                        success = process_video(file_path, use_gpu)
+                        success = process_video(file_path)
                         if success:
                             st.write(f"Processing {file} successful!")
                         else:
@@ -153,12 +136,11 @@ def main():
             with zipfile.ZipFile(zip_path, 'r') as zip_ref:
                 zip_ref.extractall("./input_files")
 
-            use_gpu = st.sidebar.checkbox("Use GPU (if available)")
             for root, dirs, files in os.walk("./input_files"):
                 for file in files:
                     if file.endswith('.mp4') or file.endswith('.mkv') or file.endswith('.wav'):
                         file_path = os.path.join(root, file)
-                        success = process_video(file_path, use_gpu)
+                        success = process_video(file_path)
                         if success:
                             st.write(f"Processing {file} successful!")
                         else:

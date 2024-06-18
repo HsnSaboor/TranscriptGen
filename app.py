@@ -173,7 +173,7 @@ def main():
                 with zipfile.ZipFile(zip_path, 'r') as zip_ref:
                     zip_ref.extractall("/input_files")
 
-                for root, dirs, files in os.walk("./input_files"):
+                for root, dirs, files in os.walk("/input_files"):
                     for file in files:
                         if file.endswith('.mp4') or file.endswith('.mkv') or file.endswith('.wav'):
                             file_path = os.path.join(root, file)
@@ -202,7 +202,7 @@ def main():
                 with zipfile.ZipFile(zip_path, 'r') as zip_ref:
                     zip_ref.extractall("/input_files")
 
-                for root, dirs, files in os.walk("./input_files"):
+                for root, dirs, files in os.walk("/input_files"):
                     for file in files:
                         if file.endswith('.mp4') or file.endswith('.mkv') or file.endswith('.wav'):
                             file_path = os.path.join(root, file)

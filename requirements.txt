@@ -1,5 +1,6 @@
 certifi
 chardet
+imageio_ffmpeg
 decorator
 google-api-core
 google-auth

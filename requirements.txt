@@ -1,6 +1,4 @@
 streamlit
-tensorflow
-moviepy==1.0.3
-spleeter==2.3.2
+moviepy
+speechrecognition
 requests
-speechrecognition==3.9.0

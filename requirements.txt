@@ -15,6 +15,7 @@ Pillow
 pyasn1
 pyasn1-modules
 pydub
+pydrive
 pydrive2
 pytz
 requests

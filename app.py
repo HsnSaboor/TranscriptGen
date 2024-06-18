@@ -18,15 +18,6 @@ def download_file(url, dest_path):
                 st.progress(progress)
         st.success(f"{os.path.basename(dest_path)} downloaded successfully!")
 
-def remove_audio_from_video(video_path, output_format='webm'):
-    with st.spinner(f"Removing audio from {os.path.basename(video_path)}..."):
-        video = VideoFileClip(video_path)
-        video_no_audio = video.without_audio()
-        output_path = os.path.splitext(video_path)[0] + f"_no_audio.{output_format}"
-        video_no_audio.write_videofile(output_path, codec='libvpx' if output_format == 'webm' else 'libx264')
-    st.success(f"Audio removed from {os.path.basename(video_path)}")
-    return output_path
-
 def transcribe_audio(audio_path):
     recognizer = sr.Recognizer()
     with sr.AudioFile(audio_path) as source:
@@ -51,13 +42,8 @@ def process_video(video_path):
         with st.spinner(f"Processing {os.path.basename(video_path)}..."):
             # Extract audio
             video = VideoFileClip(video_path)
-            audio_path = os.path.splitext(video_path)[0] + '.wav'
+            audio_path = os.path.join("output", os.path.splitext(os.path.basename(video_path))[0] + '.wav')
             video.audio.write_audiofile(audio_path, codec='pcm_s16le', fps=16000)
-
-            # Remove audio from video
-            video_no_audio_path = remove_audio_from_video(video_path)
-            video_no_audio_output_path = os.path.join("output", os.path.basename(video_no_audio_path))
-            os.rename(video_no_audio_path, video_no_audio_output_path)
 
             # Transcribe audio
             transcription = transcribe_audio(audio_path)
@@ -65,11 +51,11 @@ def process_video(video_path):
             save_transcription(transcription, transcription_output_path)
 
         st.success(f"{os.path.basename(video_path)} processing complete!")
-        return True, os.path.basename(video_no_audio_output_path), os.path.basename(transcription_output_path)
+        return True
 
     except Exception as e:
         st.error(f"Error processing {os.path.basename(video_path)}: {str(e)}")
-        return False, None, None
+        return False
 
 def main():
     st.title("Audio and Video Processing App")
@@ -84,11 +70,15 @@ def main():
             file_path = os.path.join("./uploaded_files", file.name)
             with open(file_path, "wb") as f:
                 f.write(file.read())
-            success, video_output_file, transcription_output_file = process_video(file_path)
+            success = process_video(file_path)
             if success:
                 st.write("Processing successful!")
-                # Provide download link for single file
-                st.markdown(f"### Download Processed Output\n[Download Video Output]('./output/{video_output_file}')\n[Download Transcription]('./output/{transcription_output_file}')")
+                # Add download button for transcription output file
+                st.download_button(
+                    label="Download Transcription",
+                    data=open(os.path.join("output", os.path.splitext(file.name)[0] + '.txt'), 'rb').read(),
+                    file_name=os.path.splitext(file.name)[0] + '.txt'
+                )
             else:
                 st.error("Processing failed.")
 
@@ -97,29 +87,30 @@ def main():
         uploaded_files = st.file_uploader("Choose multiple files", type=["mp4", "mkv", "wav"], 
                                           accept_multiple_files=True)
         if uploaded_files:
-            video_output_files = []
-            transcription_output_files = []
             for file in uploaded_files:
                 file_path = os.path.join("./uploaded_files", file.name)
                 with open(file_path, "wb") as f:
                     f.write(file.read())
-                success, video_output_file, transcription_output_file = process_video(file_path)
+                success = process_video(file_path)
                 if success:
-                    video_output_files.append(os.path.join("output", video_output_file))
-                    transcription_output_files.append(os.path.join("output", transcription_output_file))
                     st.write(f"Processing {file.name} successful!")
                 else:
                     st.error(f"Processing {file.name} failed.")
 
-            # Provide download link for zip file containing all outputs
-            if video_output_files and transcription_output_files:
-                with st.spinner("Creating zip file..."):
-                    zipf_path = os.path.join("output", "processed_files.zip")
-                    with zipfile.ZipFile(zipf_path, 'w') as zipf:
-                        for file in video_output_files + transcription_output_files:
-                            zipf.write(file, os.path.basename(file))
-                st.success("Zip file created successfully!")
-                st.markdown(f"### Download All Processed Files\n[Download ZIP File]('./{zipf_path}')")
+            # Create a zip file containing all transcription output files
+            zip_path = "./output_files.zip"
+            with zipfile.ZipFile(zip_path, 'w') as zip_file:
+                for root, _, files in os.walk("./output"):
+                    for file in files:
+                        if file.endswith('.txt'):
+                            zip_file.write(os.path.join(root, file), arcname=file)
+
+            # Add download button for the zip file
+            st.download_button(
+                label="Download All Transcriptions as Zip",
+                data=open(zip_path, 'rb').read(),
+                file_name="output_files.zip"
+            )
 
     elif upload_option == "Extract files from zip":
         st.write("Upload a zip file containing audio/video files")
@@ -136,7 +127,7 @@ def main():
                 for file in files:
                     if file.endswith('.mp4') or file.endswith('.mkv') or file.endswith('.wav'):
                         file_path = os.path.join(root, file)
-                        success, video_output_file, transcription_output_file = process_video(file_path)
+                        success = process_video(file_path)
                         if success:
                             st.write(f"Processing {file} successful!")
                         else:
@@ -156,7 +147,7 @@ def main():
                 for file in files:
                     if file.endswith('.mp4') or file.endswith('.mkv') or file.endswith('.wav'):
                         file_path = os.path.join(root, file)
-                        success, video_output_file, transcription_output_file = process_video(file_path)
+                        success = process_video(file_path)
                         if success:
                             st.write(f"Processing {file} successful!")
                         else:

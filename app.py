@@ -65,11 +65,11 @@ def process_video(video_path):
             save_transcription(transcription, transcription_output_path)
 
         st.success(f"{os.path.basename(video_path)} processing complete!")
-        return True
+        return True, os.path.basename(video_no_audio_output_path), os.path.basename(transcription_output_path)
 
     except Exception as e:
         st.error(f"Error processing {os.path.basename(video_path)}: {str(e)}")
-        return False
+        return False, None, None
 
 def main():
     st.title("Audio and Video Processing App")
@@ -84,9 +84,11 @@ def main():
             file_path = os.path.join("./uploaded_files", file.name)
             with open(file_path, "wb") as f:
                 f.write(file.read())
-            success = process_video(file_path)
+            success, video_output_file, transcription_output_file = process_video(file_path)
             if success:
                 st.write("Processing successful!")
+                # Provide download link for single file
+                st.markdown(f"### Download Processed Output\n[Download Video Output]('./output/{video_output_file}')\n[Download Transcription]('./output/{transcription_output_file}')")
             else:
                 st.error("Processing failed.")
 
@@ -95,15 +97,29 @@ def main():
         uploaded_files = st.file_uploader("Choose multiple files", type=["mp4", "mkv", "wav"], 
                                           accept_multiple_files=True)
         if uploaded_files:
+            video_output_files = []
+            transcription_output_files = []
             for file in uploaded_files:
                 file_path = os.path.join("./uploaded_files", file.name)
                 with open(file_path, "wb") as f:
                     f.write(file.read())
-                success = process_video(file_path)
+                success, video_output_file, transcription_output_file = process_video(file_path)
                 if success:
+                    video_output_files.append(os.path.join("output", video_output_file))
+                    transcription_output_files.append(os.path.join("output", transcription_output_file))
                     st.write(f"Processing {file.name} successful!")
                 else:
                     st.error(f"Processing {file.name} failed.")
+
+            # Provide download link for zip file containing all outputs
+            if video_output_files and transcription_output_files:
+                with st.spinner("Creating zip file..."):
+                    zipf_path = os.path.join("output", "processed_files.zip")
+                    with zipfile.ZipFile(zipf_path, 'w') as zipf:
+                        for file in video_output_files + transcription_output_files:
+                            zipf.write(file, os.path.basename(file))
+                st.success("Zip file created successfully!")
+                st.markdown(f"### Download All Processed Files\n[Download ZIP File]('./{zipf_path}')")
 
     elif upload_option == "Extract files from zip":
         st.write("Upload a zip file containing audio/video files")
@@ -120,7 +136,7 @@ def main():
                 for file in files:
                     if file.endswith('.mp4') or file.endswith('.mkv') or file.endswith('.wav'):
                         file_path = os.path.join(root, file)
-                        success = process_video(file_path)
+                        success, video_output_file, transcription_output_file = process_video(file_path)
                         if success:
                             st.write(f"Processing {file} successful!")
                         else:
@@ -140,7 +156,7 @@ def main():
                 for file in files:
                     if file.endswith('.mp4') or file.endswith('.mkv') or file.endswith('.wav'):
                         file_path = os.path.join(root, file)
-                        success = process_video(file_path)
+                        success, video_output_file, transcription_output_file = process_video(file_path)
                         if success:
                             st.write(f"Processing {file} successful!")
                         else:
